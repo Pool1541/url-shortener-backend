@@ -1,12 +1,26 @@
 import { Kafka, Producer, Consumer } from 'kafkajs';
 
-const kafka = new Kafka({
-  clientId: 'url-shortener-client',
-  brokers: ['localhost:9092'], // Dirección del broker Kafka
-});
+let kafka: Kafka | null = null;
+let producer: Producer | null = null;
+let consumer: Consumer | null = null;
+
+export async function initializeKafka() {
+  const { KAFKA_BROKER_URL = "localhost:9092" } = process.env;
+  kafka = new Kafka ({
+    clientId: 'url-shortener-client',
+    brokers: [KAFKA_BROKER_URL],
+  });
+
+  producer = kafka.producer();
+  consumer = kafka.consumer({ 
+    groupId: 'url-shortener-group',
+    sessionTimeout: 30000,
+    heartbeatInterval: 300
+  });
+}
 
 export const createTopic = async (topic: string) => {
-  const admin = kafka.admin();
+  const admin = kafka!.admin();
   try {
     console.log('Conectando al admin...');
     await admin.connect();
@@ -37,14 +51,8 @@ export const createTopic = async (topic: string) => {
   }
 };
 
-const producer: Producer = kafka.producer();
-const consumer: Consumer = kafka.consumer({ groupId: 'url-shortener-group',
-  sessionTimeout: 30000,
-  heartbeatInterval: 300
- });
-
 export const connectProducer = async (): Promise<void> => {
-  await producer.connect();
+  await producer!.connect();
   console.log('Kafka Producer conectado');
 };
 
@@ -53,7 +61,7 @@ export const connectConsumer = async (): Promise<void> => {
 
   while (attempts < MAX_RETRIES) {
     try {
-      await consumer.connect();
+      await consumer!.connect();
       console.log('Kafka Consumer conectado');
       return; // Salir si la conexión fue exitosa
     } catch (error: any) {
@@ -76,7 +84,7 @@ export const sendMessage = async (topic: string, messages: object[]): Promise<vo
 
   while (attempts < MAX_RETRIES) {
     try {
-      await producer.send({
+      await producer!.send({
         topic,
         messages: messages.map((message) => ({ value: JSON.stringify(message) })),
       });
@@ -99,8 +107,8 @@ export const consumeMessages = async (
   callback: (message: { topic: string; partition: number; value: Record<string, any> }) => void
 ): Promise<void> => {
   try {
-    await consumer.subscribe({ topics, fromBeginning: true });
-    await consumer.run({
+    await consumer!.subscribe({ topics, fromBeginning: true });
+    await consumer!.run({
       eachMessage: async ({ topic, partition, message }) => {
         callback({
           topic,
@@ -114,12 +122,12 @@ export const consumeMessages = async (
     throw new Error(`Fallo al consumir mensajes del topic ${topics}`);
   }
 
-  consumer.on('consumer.crash', async (event) => {
+  consumer!.on('consumer.crash', async (event) => {
     console.error('El consumidor se ha caído:', event.payload.error);
     if (event.payload.error.message.includes('rejoin is needed')) {
       console.log('Intentando reconectar al grupo...');
-      await consumer.disconnect();
-      await consumer.connect();
+      await consumer!.disconnect();
+      await consumer!.connect();
     }
   });
 };
