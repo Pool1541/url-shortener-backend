@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { sendMessage } from '../clients/kafkaClient';
-import { getAllUrls, getUrl } from '../clients/redisClient';
+import { getAllClicksOfUrl, getAllUrls, getUrl } from '../clients/redisClient';
 import crypto from 'crypto';
 
 export const createShortUrl = async (req: Request, res: Response): Promise<void> => {
@@ -19,25 +19,19 @@ export const createShortUrl = async (req: Request, res: Response): Promise<void>
 
 export const registerClickEvent = async (req: Request, res: Response): Promise<void> => {
   const { shortUrl } = req.params;
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress?.replace('::ffff:', '') || 'unknown';
 
   if (!shortUrl) {
     res.status(400).json({ error: 'La URL acortada es requerida' });
     return;
   }
 
-  await sendMessage('url-clicked', [{ shortUrl, timestamp: new Date().toISOString() }]);
+  await sendMessage('url-clicked', [{ shortUrl, timestamp: new Date().toISOString(), ip: clientIP }]);
 
   res.status(200).json({ message: 'Evento de clic registrado' });
 };
 
 export const getAllShortUrls = async (req: Request, res: Response ): Promise<void> => {
-  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress?.replace('::ffff:', '') || 'unknown';
-  console.log({
-    fromProxy: req.headers['x-forwarded-for'],
-    remoteAddress: req.socket.remoteAddress,
-    clientIP
-  });
-  
   const urls = await getAllUrls();
 
   if (!urls || urls.length === 0) {
@@ -45,7 +39,7 @@ export const getAllShortUrls = async (req: Request, res: Response ): Promise<voi
     return;
   };
 
-  res.status(200).json({ urls, ip: clientIP });
+  res.status(200).json({ urls });
 }
 
 export const getOriginalUrl = async (req: Request, res: Response): Promise<void> => {
@@ -72,3 +66,21 @@ const generateShortUrl = (originalUrl: string): string => {
   const hash = crypto.createHash('sha256').update(originalUrl).digest('base64');
   return hash.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8); // Eliminar caracteres no alfanuméricos y truncar
 };
+
+export const getAllClicks = async (req: Request, res: Response): Promise<void> => {
+  const { shortUrl } = req.params;
+
+  if (!shortUrl) {
+    res.status(400).json({ error: 'La URL acortada es requerida' });
+    return;
+  }
+
+  const clicks = await getAllClicksOfUrl(shortUrl);
+
+  if (!clicks) {
+    res.status(404).json({ error: 'No se encontraron clics para la URL acortada proporcionada' });
+    return;
+  }
+
+  res.status(200).json(clicks);
+}
