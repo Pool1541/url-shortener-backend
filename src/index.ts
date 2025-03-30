@@ -3,7 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import routes from './routes';
-import { connectProducer, connectConsumer } from './clients/kafkaClient';
+import { connectProducer, connectConsumer, createTopic, consumeMessages } from './clients/kafkaClient';
+import { connectRedis, incrementClicks, storeUrl } from './clients/redisClient';
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ class Server {
     this.middlewares();
     this.routes();
     this.errorHandlers();
+    this.callbacks();
   }
 
   private middlewares() {
@@ -28,6 +30,29 @@ class Server {
 
     // Middleware para parsear JSON
     this.app.use(express.json());
+  }
+
+  async callbacks() {
+    await consumeMessages(['url-created', 'url-clicked'], async ({ topic, value }) => {
+      try {
+        console.log('Mensaje recibido:', topic, value);
+        switch (topic) {
+          case 'url-created':
+            await storeUrl(value.shortUrl, value.originalUrl);
+            console.log('Mensaje recibido en el topic url-created:', value);
+            break;
+          case 'url-clicked':
+            await incrementClicks(value.shortUrl);
+            console.log('Mensaje recibido en el topic url-clicked:', value);
+            break;
+          default:
+            console.log(`Topic desconocido: ${topic}`);
+        }
+
+      } catch (error) {
+        console.error('Error al procesar el mensaje:', error);
+      }
+    });
   }
 
   private routes() {
@@ -51,9 +76,12 @@ class Server {
     try {
       await connectProducer();
       await connectConsumer();
-      console.log('Kafka Producer y Consumer conectados');
+      await createTopic('url-created');
+      await createTopic('url-clicked');
+      await connectRedis();
+      console.log('Kafka y Redis conectados');
     } catch (error) {
-      console.error('Error al conectar Kafka:', error);
+      console.error('Error al conectar servicios:', error);
     }
 
     this.app.listen(this.port, () => {
