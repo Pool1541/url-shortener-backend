@@ -96,3 +96,13 @@ export const getAllClicksOfUrl = async (shortUrl: string): Promise<any[]> => {
     return [];
   }
 }
+
+export const validateIfUrlExists = async (shortUrl: string): Promise<boolean> => {
+  try {
+    const exists = await redisClient.exists(`short:${shortUrl}`);
+    return exists == 1;
+  } catch (error) {
+    console.error('Error al verificar si la URL existe en Redis:', error);
+    return false;
+  }
+}

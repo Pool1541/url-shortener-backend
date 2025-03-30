@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { sendMessage } from '../clients/kafkaClient';
-import { getAllClicksOfUrl, getAllUrls, getUrl } from '../clients/redisClient';
+import { getAllClicksOfUrl, getAllUrls, getUrl, validateIfUrlExists } from '../clients/redisClient';
 import crypto from 'crypto';
 
 export const createShortUrl = async (req: Request, res: Response): Promise<void> => {
@@ -12,6 +12,13 @@ export const createShortUrl = async (req: Request, res: Response): Promise<void>
   }
 
   const shortUrl = generateShortUrl(originalUrl);
+  const urlExists = await validateIfUrlExists(shortUrl);
+
+  if (urlExists) {
+    res.status(409).json({ error: 'La URL acortada ya existe' });
+    return;
+  }
+
   await sendMessage('url-created', [{ originalUrl, shortUrl }]);
 
   res.status(201).json({ originalUrl, shortUrl });
