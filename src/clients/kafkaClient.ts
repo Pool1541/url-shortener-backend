@@ -38,7 +38,10 @@ export const createTopic = async (topic: string) => {
 };
 
 const producer: Producer = kafka.producer();
-const consumer: Consumer = kafka.consumer({ groupId: 'url-shortener-group' });
+const consumer: Consumer = kafka.consumer({ groupId: 'url-shortener-group',
+  sessionTimeout: 30000,
+  heartbeatInterval: 300
+ });
 
 export const connectProducer = async (): Promise<void> => {
   await producer.connect();
@@ -92,11 +95,11 @@ export const sendMessage = async (topic: string, messages: object[]): Promise<vo
 };
 
 export const consumeMessages = async (
-  topic: string,
-  callback: (message: { topic: string; partition: number; value: object }) => void
+  topics: (string | RegExp)[],
+  callback: (message: { topic: string; partition: number; value: Record<string, any> }) => void
 ): Promise<void> => {
   try {
-    await consumer.subscribe({ topic, fromBeginning: true });
+    await consumer.subscribe({ topics, fromBeginning: true });
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         callback({
@@ -107,8 +110,8 @@ export const consumeMessages = async (
       },
     });
   } catch (error: any) {
-    console.error(`Error al consumir mensajes del topic ${topic}: ${error.message}`);
-    throw new Error(`Fallo al consumir mensajes del topic ${topic}`);
+    console.error(`Error al consumir mensajes del topic ${topics}: ${error.message}`);
+    throw new Error(`Fallo al consumir mensajes del topic ${topics}`);
   }
 
   consumer.on('consumer.crash', async (event) => {
