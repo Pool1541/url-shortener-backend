@@ -28,6 +28,13 @@ export const registerClickEvent = async (req: Request, res: Response): Promise<v
   const { shortUrl } = req.params;
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress?.replace('::ffff:', '') || 'unknown';
 
+  const urlExists = await validateIfUrlExists(shortUrl);
+
+  if (!urlExists) {
+    res.status(404).json({ error: 'La URL acortada no existe' });
+    return;
+  }
+
   if (!shortUrl) {
     res.status(400).json({ error: 'La URL acortada es requerida' });
     return;
