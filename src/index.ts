@@ -42,7 +42,7 @@ class Server {
             console.log('Mensaje recibido en el topic url-created:', value);
             break;
           case 'url-clicked':
-            await incrementClicks(value.shortUrl);
+            await incrementClicks(value.shortUrl, value.ip);
             console.log('Mensaje recibido en el topic url-clicked:', value);
             break;
           default:
