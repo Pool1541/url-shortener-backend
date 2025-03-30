@@ -3,10 +3,18 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import routes from './routes';
-import { connectProducer, connectConsumer, createTopic, consumeMessages } from './clients/kafkaClient';
-import { connectRedis, incrementClicks, storeUrl } from './clients/redisClient';
+import { connectProducer, connectConsumer, createTopic, consumeMessages, initializeKafka } from './clients/kafkaClient';
+import { connectRedis, incrementClicks, initializeRedis, storeUrl } from './clients/redisClient';
 
-dotenv.config();
+const envFile = process.env.NODE_ENV === 'docker' ? '.docker.env' : '.env';
+console.log(`Cargando variables de entorno desde: ${envFile}`);
+console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+
+dotenv.config({
+  path: envFile,
+});
+
+console.log( { kafka: process.env.KAFKA_BROKER_URL, redis: process.env.REDIS_URL } );
 
 class Server {
   private app: Application;
@@ -18,7 +26,6 @@ class Server {
     this.middlewares();
     this.routes();
     this.errorHandlers();
-    this.callbacks();
   }
 
   private middlewares() {
@@ -74,10 +81,13 @@ class Server {
 
   public async listen() {
     try {
+      initializeKafka()
       await connectProducer();
       await connectConsumer();
       await createTopic('url-created');
       await createTopic('url-clicked');
+      await this.callbacks();
+      await initializeRedis();
       await connectRedis();
       console.log('Kafka y Redis conectados');
     } catch (error) {
