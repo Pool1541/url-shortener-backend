@@ -31,12 +31,13 @@ export const registerClickEvent = async (req: Request, res: Response): Promise<v
 };
 
 export const getAllShortUrls = async (req: Request, res: Response ): Promise<void> => {
-  const clientIP = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress?.replace('::ffff:', '') || 'unknown';
   console.log({
-    ip: req.ip,
     fromProxy: req.headers['x-forwarded-for'],
     remoteAddress: req.socket.remoteAddress,
-  })
+    clientIP
+  });
+  
   const urls = await getAllUrls();
 
   if (!urls || urls.length === 0) {
