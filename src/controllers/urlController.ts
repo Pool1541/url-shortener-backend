@@ -31,6 +31,12 @@ export const registerClickEvent = async (req: Request, res: Response): Promise<v
 };
 
 export const getAllShortUrls = async (req: Request, res: Response ): Promise<void> => {
+  const clientIP = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  console.log({
+    ip: req.ip,
+    fromProxy: req.headers['x-forwarded-for'],
+    remoteAddress: req.socket.remoteAddress,
+  })
   const urls = await getAllUrls();
 
   if (!urls || urls.length === 0) {
@@ -38,7 +44,7 @@ export const getAllShortUrls = async (req: Request, res: Response ): Promise<voi
     return;
   };
 
-  res.status(200).json({ urls });
+  res.status(200).json({ urls, ip: clientIP });
 }
 
 export const getOriginalUrl = async (req: Request, res: Response): Promise<void> => {
@@ -51,12 +57,14 @@ export const getOriginalUrl = async (req: Request, res: Response): Promise<void>
 
   const originalUrl = await getUrl(shortUrl);
 
+  console.log(originalUrl)
+
   if (!originalUrl) {
     res.status(404).json({ error: 'No se encontró la URL original para la URL acortada proporcionada' });
     return;
   }
 
-  res.status(200).json({ originalUrl });
+  res.status(200).json(originalUrl);
 };
 
 const generateShortUrl = (originalUrl: string): string => {
