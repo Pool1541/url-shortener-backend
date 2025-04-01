@@ -66,8 +66,6 @@ export const getOriginalUrl = async (req: Request, res: Response): Promise<void>
 
   const originalUrl = await getUrl(shortUrl);
 
-  console.log(originalUrl)
-
   if (!originalUrl) {
     res.status(404).json({ error: 'No se encontró la URL original para la URL acortada proporcionada' });
     return;

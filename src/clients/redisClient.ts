@@ -57,7 +57,7 @@ export const getUrl = async (shortUrl: string): Promise<any | null> => {
     const urlInfo = await redisClient!.hGetAll(`short:${shortUrl}`);
 
     if (urlInfo.originalUrl === undefined) {
-      return {}
+      return null;
     }
     
     return {
