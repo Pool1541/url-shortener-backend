@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { sendMessage } from '../clients/kafkaClient';
-import { getAllClicksOfUrl, getAllUrls, getUrl, validateIfUrlExists } from '../clients/redisClient';
+import { getAllClicksOfUrl, getAllUrls, getUrl, validateIfUrlExists, deleteUrl } from '../clients/redisClient';
 import crypto from 'crypto';
 
 export const createShortUrl = async (req: Request, res: Response): Promise<void> => {
@@ -96,3 +96,20 @@ export const getAllClicks = async (req: Request, res: Response): Promise<void> =
 
   res.status(200).json(clicks);
 }
+
+export const deleteUrlController = async (req: Request, res: Response): Promise<void> => {
+  const { shortUrl } = req.params;
+
+  try {
+    const success = await deleteUrl(shortUrl);
+
+    if (success) {
+      res.status(200).json({ message: `URL ${shortUrl} eliminada correctamente.` });
+    } else {
+      res.status(404).json({ message: `URL ${shortUrl} no encontrada.` });
+    }
+  } catch (error) {
+    console.error(`Error al eliminar la URL ${shortUrl}:`, error);
+    res.status(500).json({ message: 'Error interno del servidor.' });
+  }
+};

@@ -112,3 +112,41 @@ export const validateIfUrlExists = async (shortUrl: string): Promise<boolean> =>
     return false;
   }
 }
+
+export const deleteUrl = async (shortUrl: string): Promise<boolean> => {
+  const urlExists = await validateIfUrlExists(shortUrl);
+
+  if (!urlExists) {
+    return false;
+  }
+
+  try {
+    // Eliminar la información de la URL
+    await redisClient!.del(`short:${shortUrl}`);
+
+    // Usar SCAN para buscar claves relacionadas con los clics
+    let cursor = 0;
+    
+    do {
+      const result = await redisClient!.scan(cursor, {
+        MATCH: `clicks:${shortUrl}:*`,
+        COUNT: 1000,
+      });
+      cursor = result.cursor;
+      const keys = result.keys;
+
+      if (keys.length > 0) {
+        await redisClient!.del(keys);
+      }
+    } while (cursor !== 0);
+
+    // Eliminar la clave principal de clics
+    await redisClient!.del(`clicks:${shortUrl}`);
+
+    console.log(`URL eliminada: ${shortUrl}`);
+    return true;
+  } catch (error) {
+    console.error(`Error al eliminar la URL ${shortUrl}:`, error);
+    return false;
+  }
+};
